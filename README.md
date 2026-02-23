@@ -1,2 +1,3 @@
 # multi-variate-dcm-thesis
-ABSTRACT
+
+Cleaned-up methods, plotting and data generation.

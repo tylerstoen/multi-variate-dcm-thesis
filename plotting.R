@@ -1,0 +1,123 @@
+# ------------------------------------------- #
+# ---------------- Plotting ----------------- #
+# ------------------------------------------- #
+
+library(ggplot2)
+
+# -------------------------------------------------------------------------- #
+plot_m_scores <- function(data,
+                          A0 = character(0),
+                          taxa_subset = NULL) {
+  
+  library(dplyr)
+  library(ggplot2)
+  library(tibble)
+  
+  uvw_vals <- compute_uvw(data)
+  taxa <- rownames(data[[1]])
+  
+  if (!is.null(taxa_subset)) {
+    taxa <- intersect(taxa, taxa_subset)
+  }
+  
+  out <- vector("list", length(taxa))
+  names(out) <- taxa
+  
+  for (j in taxa) {
+    
+    M <- compute_m_vecs(uvw_vals, A0, j)
+    
+    S.j1 <- cov(uvw_vals[[1]][j, ], M$m1)
+    S.j2 <- cov(uvw_vals[[2]][j, ], M$m2)
+    S.j3 <- cov(uvw_vals[[3]][j, ], M$m3)
+    
+    out[[j]] <- tibble(
+      Taxa = j,
+      Treatment = factor(c("T1","T2","T3"),
+                         levels = c("T1","T2","T3")),
+      m_score = c(S.j1, S.j2, S.j3)
+    )
+  }
+  
+  m_df <- bind_rows(out)
+  
+  ggplot(m_df, aes(Treatment, m_score, color = Treatment)) +
+    geom_point() +
+    geom_line(aes(group = Taxa)) +
+    facet_wrap(~ Taxa) +
+    theme_minimal()
+}
+
+
+
+# ---------------------------------------------------------------------------- #
+
+# ------------------------------------------------------------ #
+# Plots individual contribution to correlations                #
+# Shows skewness for contributions under treatments w high cov #
+# ------------------------------------------------------------ #
+
+plot_contributions <- function(data,
+                               A0 = character(0),
+                               taxa_subset = NULL,
+                               show_means = FALSE) {
+  
+  library(dplyr)
+  library(ggplot2)
+  library(tibble)
+  
+  uvw_vals <- compute_uvw(data)
+  taxa <- rownames(data[[1]])
+  
+  if (!is.null(taxa_subset)) {
+    taxa <- intersect(taxa, taxa_subset)
+  }
+  
+  out <- vector("list", length(taxa))
+  names(out) <- taxa
+  
+  for (j in taxa) {
+    
+    M <- compute_m_vecs(uvw_vals, A0, j)
+    
+    u_vals <- uvw_vals[[1]][j, ] * M$m1
+    v_vals <- uvw_vals[[2]][j, ] * M$m2
+    w_vals <- uvw_vals[[3]][j, ] * M$m3
+    
+    out[[j]] <- tibble(
+      Taxa = j,
+      Treatment = rep(c("T1","T2","T3"),
+                      times = c(length(u_vals),
+                                length(v_vals),
+                                length(w_vals))),
+      Value = c(u_vals, v_vals, w_vals)
+    )
+  }
+  
+  contributions <- bind_rows(out)
+  
+  p <- ggplot(contributions,
+              aes(Treatment, Value, color = Treatment)) +
+    geom_jitter(width = 0.15,
+                height = 0,
+                size = 1.8,
+                alpha = 0.8) +
+    facet_wrap(~ Taxa) +
+    theme_minimal()
+  
+  if (show_means) {
+    p <- p +
+      stat_summary(
+        fun = mean,
+        geom = "crossbar",
+        width = 0.5,
+        fatten = 1,
+        linewidth = 0.8
+      )
+  }
+  
+  return(p)
+}
+
+
+
